@@ -72,7 +72,7 @@ public class Participant
      * TODO: assign unique easy to read names to unknown participants (e.g.
      * Speaker 1, Speaker 2, etc.).
      */
-    public static final String UNKNOWN_NAME = "Fellow Jitser";
+    public static final String UNKNOWN_NAME = "Fellow Telvivist";
 
     /**
      * The audio ssrc when it is not known yet
@@ -136,9 +136,9 @@ public class Participant
     private String identifier;
 
     /**
-     * Set default language code as en-US for this participant's locale
+     * Set default language code as en-ZA for this participant's locale
      */
-    private Locale sourceLanguageLocale = Locale.forLanguageTag("en-US");
+    private Locale sourceLanguageLocale = Locale.forLanguageTag("en-ZA");
 
     /**
      * The String representing the language code for required translation.
