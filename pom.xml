@@ -330,6 +330,11 @@
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
+      <artifactId>jitsi-webrtcvadwrapper</artifactId>
+      <version>1.0-20200414.144800-2</version>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
       <artifactId>jitsi-xmpp-extensions</artifactId>
       <version>1.0-8-g340be56</version>
     </dependency>
