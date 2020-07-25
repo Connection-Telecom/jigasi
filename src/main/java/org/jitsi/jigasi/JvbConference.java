@@ -131,6 +131,13 @@ public class JvbConference
         = "org.jitsi.jigasi.MUC_SERVICE_ADDRESS";
 
     /**
+     * The name of the property that is used to define whether the
+     * max occupant limit reach is notified or not.
+     */
+    private static final String P_NAME_NOTIFY_MAX_OCCUPANTS
+        = "org.jitsi.jigasi.NOTIFY_MAX_OCCUPANTS";
+
+    /**
      * The default bridge id to use.
      */
     public static final String DEFAULT_BRIDGE_ID = "jitsi";
@@ -303,6 +310,11 @@ public class JvbConference
     private boolean gwSesisonWaitingStatsSent = false;
 
     /**
+     * The mute IQ handler if enabled.
+     */
+    private MuteIqHandler muteIqHandler = null;
+
+    /**
      * Creates new instance of <tt>JvbConference</tt>
      * @param gatewaySession the <tt>AbstractGatewaySession</tt> that will be
      *                       using this <tt>JvbConference</tt>.
@@ -357,14 +369,16 @@ public class JvbConference
                 }
                 catch (XmppStringprepException e)
                 {
-                    logger.error("The SIP URI is invalid to use an XMPP"
+                    logger.error(this.callContext
+                        + " The SIP URI is invalid to use an XMPP"
                         + " resource, identifier will be a random string", e);
                 }
             }
             else
             {
-                logger.info("The SIP URI is empty! The XMPP resource " +
-                    "identifier will be a random string.");
+                logger.info(this.callContext
+                    + " The SIP URI is empty! The XMPP resource "
+                    + "identifier will be a random string.");
             }
         }
 
@@ -493,6 +507,14 @@ public class JvbConference
         {
             telephony.removeCallListener(callListener);
             telephony = null;
+        }
+
+        if (muteIqHandler != null)
+        {
+            // we need to remove it from the connection, or we break some Smack
+            // weak references map where the key is connection and the value
+            // holds a connection and we leak connection/conferences.
+            getConnection().unregisterIQRequestHandler(muteIqHandler);
         }
 
         gatewaySession.onJvbConferenceWillStop(this, endReasonCode, endReason);
@@ -675,7 +697,6 @@ public class JvbConference
 
         try
         {
-
             String roomName = callContext.getRoomName();
             if (!roomName.contains("@"))
             {
@@ -751,13 +772,19 @@ public class JvbConference
             }
             else
             {
-                logger.error("Cannot set presence extensions as chatRoom " +
-                    "is not an instance of ChatRoomJabberImpl");
+                logger.error(this.callContext
+                    + " Cannot set presence extensions as chatRoom "
+                    + "is not an instance of ChatRoomJabberImpl");
             }
 
             if (JigasiBundleActivator.isSipStartMutedEnabled())
             {
-                getConnection().registerIQRequestHandler(new MuteIqHandler());
+                if (muteIqHandler == null)
+                {
+                    muteIqHandler = new MuteIqHandler();
+                }
+
+                getConnection().registerIQRequestHandler(muteIqHandler);
             }
 
             // we invite focus and wait for its response
@@ -804,7 +831,9 @@ public class JvbConference
         {
             if (e.getCause() instanceof XMPPException.XMPPErrorException)
             {
-                if (((XMPPException.XMPPErrorException)e.getCause())
+                if (JigasiBundleActivator.getConfigurationService()
+                        .getBoolean(P_NAME_NOTIFY_MAX_OCCUPANTS, true)
+                    && ((XMPPException.XMPPErrorException)e.getCause())
                         .getXMPPError().getCondition() == service_unavailable)
                 {
                     gatewaySession.handleMaxOccupantsLimitReached();
@@ -891,12 +920,6 @@ public class JvbConference
             this.jitsiMeetTools = null;
         }
 
-        if (mucRoom == null)
-        {
-            logger.warn(this.callContext + " MUC room is null");
-            return;
-        }
-
         OperationSetIncomingDTMF opSet
             = this.xmppProvider.getOperationSet(OperationSetIncomingDTMF.class);
         if (opSet != null)
@@ -905,6 +928,12 @@ public class JvbConference
         OperationSetMultiUserChat muc
             = xmppProvider.getOperationSet(OperationSetMultiUserChat.class);
         muc.removePresenceListener(this);
+
+        if (mucRoom == null)
+        {
+            logger.warn(this.callContext + " MUC room is null");
+            return;
+        }
 
         mucRoom.leave();
 
@@ -1308,13 +1337,8 @@ public class JvbConference
         String boshUrl = ctx.getBoshURL();
         if (!StringUtils.isNullOrEmpty(boshUrl))
         {
-            String roomName = callContext.getRoomName();
             boshUrl = boshUrl.replace(
-                "{roomName}",
-                // if room name contains @ part, make sure we remove it
-                roomName.contains("@") ?
-                    Util.extractCallIdFromResource(roomName)
-                    : roomName);
+                "{roomName}", callContext.getConferenceName());
             properties.put(JabberAccountID.BOSH_URL, boshUrl);
         }
 
@@ -1530,7 +1554,7 @@ public class JvbConference
                 timeoutThread = new Thread(this, name);
                 willCauseTimeout = true;
                 timeoutThread.start();
-                logger.debug("Scheduled new " + this);
+                logger.debug(callContext + " Scheduled new " + this);
             }
         }
 
@@ -1676,7 +1700,7 @@ public class JvbConference
         }
         catch(Exception ex)
         {
-            logger.error(ex.getMessage());
+            logger.error(this.callContext + " " + ex.getMessage());
             return false;
         }
         finally

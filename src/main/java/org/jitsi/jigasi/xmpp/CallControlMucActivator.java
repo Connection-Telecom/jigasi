@@ -76,14 +76,6 @@ public class CallControlMucActivator
     public static final String BREWERY_ENABLED_PROP
         = "org.jitsi.jigasi.BREWERY_ENABLED";
 
-    // Disable stream management as it could lead to unexpected behaviour,
-    // because we do not account for that to happen.
-    static
-    {
-        XMPPTCPConnection.setUseStreamManagementDefault(false);
-        XMPPTCPConnection.setUseStreamManagementResumptionDefault(false);
-    }
-
     /**
      * The call controlling logic.
      */
@@ -180,6 +172,16 @@ public class CallControlMucActivator
     {
         return ServiceUtils.getService(
             osgiContext, ConfigurationService.class);
+    }
+
+    /**
+     * Returns timeout value for room join waiting.
+     */
+    public static long getMucJoinWaitTimeout()
+    {
+        return JigasiBundleActivator.getConfigurationService()
+                                    .getLong(JigasiBundleActivator.P_NAME_MUC_JOIN_TIMEOUT,
+                                             JigasiBundleActivator.MUC_JOIN_TIMEOUT_DEFAULT_VALUE);
     }
 
     @Override
@@ -656,11 +658,6 @@ public class CallControlMucActivator
          */
         private final CountDownLatch countDownLatch = new CountDownLatch(1);
 
-        /**
-         * The timeout in seconds to wait for joining a room.
-         */
-        private static final int TIMEOUT_JOIN = 5;
-
         @Override
         public void onJvbRoomJoined(AbstractGatewaySession source)
         {
@@ -677,7 +674,7 @@ public class CallControlMucActivator
         {
             try
             {
-                if (!countDownLatch.await(TIMEOUT_JOIN, TimeUnit.SECONDS))
+                if (!countDownLatch.await(getMucJoinWaitTimeout(), TimeUnit.SECONDS))
                 {
                     throw new Exception("Fail to join muc!");
                 }
