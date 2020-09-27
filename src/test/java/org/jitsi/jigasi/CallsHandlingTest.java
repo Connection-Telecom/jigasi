@@ -83,7 +83,7 @@ public class CallsHandlingTest
     {
         sipProvider = osgi.getSipProvider();
 
-        this.roomName = getTestRoomName();
+        this.roomName = getTestRoomName() + "@conference.net";
 
         this.focus = new MockJvbConferenceFocus(roomName);
     }
@@ -213,6 +213,7 @@ public class CallsHandlingTest
         ChatRoom chatRoom = session.getJvbChatRoom();
         Call jvbCall = session.getJvbCall();
 
+        assertNotNull(chatRoom);
         assertEquals(true, chatRoom.isJoined());
         assertEquals(CallState.CALL_IN_PROGRESS, jvbCall.getCallState());
 
@@ -331,6 +332,8 @@ public class CallsHandlingTest
         assertEquals("xmpp:", callUri.substring(0, 5));
         assertTrue(callUri.contains("@" + jigasiJid));
 
+        GatewaySessions gatewaySessions = new GatewaySessions(osgi.getSipGateway());
+
         // Wait for call to be created
         Call sipCall = outCallWatch.getOutgoingCall(1000);
 
@@ -344,7 +347,13 @@ public class CallsHandlingTest
         callStateWatch.waitForState(sipCall, CallState.CALL_IN_PROGRESS, 1000);
 
         Jid callResource = JidCreate.from(callUri.substring(5)); //remove xmpp:
-        SipGatewaySession session = osgi.getSipGateway().getSession(callResource);
+
+        List<SipGatewaySession> sessions = gatewaySessions.getSessions(2000);
+        assertNotNull(sessions);
+        assertEquals(1, sessions.size());
+
+        SipGatewaySession session = sessions.get(0);
+
         Call xmppCall = session.getJvbCall();
 
         // We joined JVB conference call
